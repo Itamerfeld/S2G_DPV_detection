@@ -100,4 +100,8 @@ Total data in this repo is about **1.4 GB**.
 
 ## License
 
-Research code accompanying the S2G evaluation. Please cite the associated paper if you use it.
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+You may use, modify, and share the code and data for **noncommercial** purposes (personal study, academic research, education, and use by noncommercial organizations). **For-profit / commercial use is not allowed.**
+
+Please cite the associated paper if you use this work.
