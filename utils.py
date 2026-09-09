@@ -16,35 +16,6 @@ import plotly.graph_objects as go
 ## DETECTORS
 ## ====================
 
-class WelchDetector:
-    def __init__(self, fs, nperseg, overlap=0.5, nfft=None, window='hanning', dc=20, crop_freq=None, norm_size=5, default_distance=3):
-        self.fs = fs
-        self.nperseg = nperseg
-        self.overlap = overlap
-        self.nfft = nfft
-        self.window = window
-        self.dc = dc
-        self.crop_freq = crop_freq
-        self.norm_size = norm_size
-        self.default_distance = default_distance
-
-    def detect(self, rx, threshold):
-        pxx, F = self.get_feature_vector(rx)
-        detections = find_peaks(pxx, height=threshold, distance=self.default_distance)[0]
-        is_detected = len(detections) > 0
-        return is_detected, detections, (pxx, F)
-
-    def get_feature_vector(self, rx):
-        F, T, Sxx, phasogram = calc_spectrogram(rx, self.fs, nperseg=self.nperseg, percent_overlap=self.overlap, nfft=self.nfft, window=self.window, remove_dc=self.dc, crop_freq=self.crop_freq)
-        pxx = calc_welch_from_spectrogram(Sxx, normalization_window_size=self.norm_size)
-        return pxx, F
-
-    def get_score_1fb(self, rx, f0):
-        F, T, Sxx, _ = calc_spectrogram(rx, self.fs, nperseg=self.nperseg, percent_overlap=self.overlap, nfft=self.nfft, window=self.window, remove_dc=self.dc, crop_freq=self.crop_freq)
-        fix = np.where(F >= f0)[0][0]
-        score = np.abs(np.mean(Sxx[fix, :]))
-        return score
-
 
 class S2GDetector:
     def __init__(self, fs, nperseg, overlap=0., nfft=None, window='hanning', dc=20, crop_freq=None, norm_size=9, quantization_levels=10, mode="wasserstein", default_distance=2):
@@ -71,45 +42,17 @@ class S2GDetector:
         K = get_all_Ks(phasogram, F, n_levels=self.quantization_levels, mode=self.mode)
         return K, F
 
-    def get_score_1fb(self, rx, f0):
-        F, T, Sxx, phasogram = calc_spectrogram(rx, self.fs, nperseg=self.nperseg, percent_overlap=self.overlap, nfft=self.nfft, window=self.window, remove_dc=self.dc, crop_freq=self.crop_freq)
-        fix = np.where(F >= f0)[0][0]
-        phase = phasogram[fix, :]
-        transitions = get_s2g(phase, self.quantization_levels)
-        score = get_K(transitions, mode=self.mode)
-        return score
-
-
-class TalmonDetector:
-    def __init__(self, fs, nperseg, overlap=0.5, nfft=None, window='hanning', dc=20, crop_freq=None, norm_size=9, default_distance=3):
-        self.fs = fs
-        self.nperseg = nperseg
-        self.overlap = overlap
-        self.nfft = nfft
-        self.window = window
-        self.dc = dc
-        self.crop_freq = crop_freq
-        self.norm_size = norm_size
-        self.default_distance = default_distance
-
-    def detect(self, rx, threshold):
-        scores, F = self.get_feature_vector(rx)
-        scores = rw_normalization(scores, window_size=self.norm_size)
-        detections = find_peaks(scores, height=threshold, distance=self.default_distance)[0]
-        is_detected = len(detections) > 0
-        return is_detected, detections, (scores, F)
-
-    def get_feature_vector(self, rx):
-        return correlation_score(rx, self.fs, self.nperseg, self.overlap, self.window, self.dc, self.crop_freq)
-
-    def get_score_1fb(self, rx, f0):
-        scores, F = self.get_feature_vector(rx)
-        fix = np.where(F >= f0)[0][0]
-        return scores[fix]
+    # def get_score_1fb(self, rx, f0):
+    #     F, T, Sxx, phasogram = calc_spectrogram(rx, self.fs, nperseg=self.nperseg, percent_overlap=self.overlap, nfft=self.nfft, window=self.window, remove_dc=self.dc, crop_freq=self.crop_freq)
+    #     fix = np.where(F >= f0)[0][0]
+    #     phase = phasogram[fix, :]
+    #     transitions = get_s2g(phase, self.quantization_levels)
+    #     score = get_K(transitions, mode=self.mode)
+    #     return score
 
 
 class ClassicDetector:
-    def __init__(self, fs, nperseg, overlap=0.5, nfft=None, window='hanning', dc=20, crop_freq=None, norm_size=5, default_distance=3, mode='welch'):
+    def __init__(self, fs, nperseg, overlap=0., nfft=None, window='hanning', dc=20, crop_freq=None, norm_size=5, default_distance=3, default_mode='welch'):
         self.fs = fs
         self.nperseg = nperseg
         self.overlap = overlap
@@ -119,17 +62,17 @@ class ClassicDetector:
         self.crop_freq = crop_freq
         self.norm_size = norm_size
         self.default_distance = default_distance
-        self.mode = mode
+        self.default_mode = default_mode
 
-    def detect(self, rx, threshold):
-        scores, F = self.get_feature_vector(rx)
+    def detect(self, rx, threshold, mode=None):
+        if mode is None:
+            mode = self.default_mode
+        scores, F = self.get_feature_vector(rx, mode=mode)
         detections = find_peaks(scores, height=threshold, distance=self.default_distance)[0]
         is_detected = len(detections) > 0
         return is_detected, detections, (scores, F)
 
     def get_feature_vector(self, rx, mode=None):
-        if mode is None:
-            mode = self.mode
         if mode == 'welch':
             F, T, Sxx, phasogram = calc_spectrogram(rx, self.fs, nperseg=self.nperseg, percent_overlap=self.overlap, nfft=self.nfft, window=self.window, remove_dc=self.dc, crop_freq=self.crop_freq)
             scores = calc_welch_from_spectrogram(Sxx, normalization_window_size=self.norm_size)
@@ -145,12 +88,6 @@ class ClassicDetector:
         scores = (scores - np.min(scores)) / np.std(scores) if np.std(scores) > 0 else scores
 
         return scores, F
-
-    def get_score_1fb(self, rx, f0, mode='welch'):
-        scores, F = self.get_feature_vector(rx, mode=mode)
-        fix = np.where(F >= f0)[0][0]
-        score = scores[fix]
-        return score
 
 
 ## ====================
