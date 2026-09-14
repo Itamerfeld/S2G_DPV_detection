@@ -6,3 +6,4 @@ kaleido>=1.0
 librosa>=0.10
 soundfile>=0.12
 gpxpy>=1.5
+pot>=0.9

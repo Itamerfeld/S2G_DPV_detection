@@ -24,8 +24,11 @@ fft_nperseg = 8192
 window = 'hann'
 remove_dc = 20
 
+# SNR is referenced to one detector bin, so snr_db is the SNR the detector actually sees
+signal_bw = ut.analysis_bandwidth(fs, fft_nperseg, window)
+
 sim_signal = ut.simulate_raw_signal(f0=f0, fs=fs, duration=duration)
-noisy_sim_signal = ut.add_noise_to_signal(signal=sim_signal, snr_db=snr, fs=fs, signal_bw=1)
+noisy_sim_signal = ut.add_noise_to_signal(signal=sim_signal, snr_db=snr, fs=fs, signal_bw=signal_bw)
 wn = np.random.randn(len(sim_signal))
 
 # feature scores:
@@ -57,7 +60,7 @@ for ix, sig in enumerate(signals, start=1):
     # phase distribution (polar) - pick the bin closest to f0
     f_ix = np.argmin(np.abs(F - f0))
     f_phase = phase[f_ix, :]
-    f_phase_wrapped = np.mod(f_phase, 2 * np.pi)   # np.angle returns [-pi, pi]; shift to [0, 2pi]
+    f_phase_wrapped = ut.wrap_phase(f_phase)
     hist_phase, bin_edges_phase = np.histogram(f_phase_wrapped, bins=Q, range=(0, 2 * np.pi), density=True)
     bin_centers = 0.5 * (bin_edges_phase[:-1] + bin_edges_phase[1:])
     bin_width = bin_edges_phase[1] - bin_edges_phase[0]

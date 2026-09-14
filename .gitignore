@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 .ipynb_checkpoints/
+coherence_score.ipynb
 results/plots/*.pdf
 results/plots/*.png
 results/plots/*.svg
